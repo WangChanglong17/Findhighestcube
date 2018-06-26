@@ -8,7 +8,7 @@ using namespace cv;
 int main()
 {
 	fstream file;
-	file.open("E:\\ÑĞ¾¿Éú¿ÎÌâ\\ÍõÈêÄş¿ÎÌâ\\depth-0604.txt");
+	file.open("E:\\depth-0604.txt");
 	Mat depth = Mat(424, 512, CV_16SC1);
 	for (int i = 0; i < 424; i++)
 	{
@@ -43,7 +43,7 @@ int main()
 			depth2.at<uchar>(i, j) = uchar(depth2gray.at<short>(i,j));
 		}
 	}
-	imwrite("E:\\ÑĞ¾¿Éú¿ÎÌâ\\ÍõÈêÄş¿ÎÌâ\\depth2gray1.png", depth2);
+	imwrite("E:\\depth2gray1.png", depth2);
 	//normalize(depth2gray, depth2gray, 0, 1, CV_MINMAX);
 	//cout << depth2gray << endl;
 
@@ -54,7 +54,7 @@ int main()
 
 	vector<vector<Point>> contours;
 	vector<Vec4i> hierarchy;
-	//ÂÖÀªÄÚÃæ»ı
+	//è½®å»“å†…é¢ç§¯
 	vector<double> interArea;
 	Mat imgDilate;
 	Mat element = getStructuringElement(MORPH_DILATE, Size(5, 5));
@@ -64,10 +64,10 @@ int main()
 	threshold(imgDilate, thresholdimg, 10, 255, THRESH_BINARY_INV);
 
 	findContours(imgDilate, contours, hierarchy, RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
-	cout <<"¼ì²âµ½µÄÂÖÀªÊıÄ¿£º"<<contours.size() << endl;
+	cout <<"æ£€æµ‹åˆ°çš„è½®å»“æ•°ç›®ï¼š"<<contours.size() << endl;
 
 	vector<Mat> depthcopies; vector<double> depth_means; Mat threshold_temp,depth_multiply;
-	//¸´ÖÆdepth2
+	//å¤åˆ¶depth2
 	
 	for (int i = 0; i < contours.size(); i++)
 	{
@@ -81,7 +81,7 @@ int main()
 		depth_means.push_back(depth_top);
 	}
 	cout << endl;
-	cout << "¸÷¸öÂÖÀªÄÚ²¿ÇøÓòµÄÆ½¾ùÉî¶ÈÖµÎª£º";
+	cout << "å„ä¸ªè½®å»“å†…éƒ¨åŒºåŸŸçš„å¹³å‡æ·±åº¦å€¼ä¸ºï¼š";
 	for (int i = 0; i < depth_means.size(); i++)
 	{
 		cout << depth_means[i] << " ";
@@ -92,10 +92,10 @@ int main()
 	sort(depth_means_temp.begin(), depth_means_temp.end());
 	vector<double>::iterator min_depth_seq = find(depth_means.begin(), depth_means.end(), depth_means_temp[0]);
 	int min_depth_seq_int = min_depth_seq - depth_means.begin();
-	cout << "µÚ" << min_depth_seq_int +1 << "¸öÂÖÀªÎªÒªÕÒÑ°µÄºĞ×Ó¶¥²¿ÇøÓò" << endl;
-	cout << "ÆäÃæ»ıÎª£º" << interArea[min_depth_seq_int] << endl;
+	cout << "ç¬¬" << min_depth_seq_int +1 << "ä¸ªè½®å»“ä¸ºè¦æ‰¾å¯»çš„ç›’å­é¡¶éƒ¨åŒºåŸŸ" << endl;
+	cout << "å…¶é¢ç§¯ä¸ºï¼š" << interArea[min_depth_seq_int] << endl;
 
-	//ÔÚºĞ×Ó¶¥²¿ÇøÓòÖĞÈ¡500¸öµã·ÅÈëÈıÎ¬×ø±ê¾ØÕóÖĞ
+	//åœ¨ç›’å­é¡¶éƒ¨åŒºåŸŸä¸­å–500ä¸ªç‚¹æ”¾å…¥ä¸‰ç»´åæ ‡çŸ©é˜µä¸­
 	Mat positions = Mat(300, 3, CV_16SC1);
 	int m = 0;
 	for (int i = 170; i < 315; i=i+2)
@@ -125,7 +125,7 @@ int main()
 
 	cout << values << endl;
 	cout << vectors << endl;
-	//Çó×îĞ¡ÌØÕ÷Öµ¼°Æä¶ÔÓ¦µÄÌØÕ÷ÏòÁ¿£¬¼´ÎªÆ½Ãæ·¨ÏòÁ¿
+	//æ±‚æœ€å°ç‰¹å¾å€¼åŠå…¶å¯¹åº”çš„ç‰¹å¾å‘é‡ï¼Œå³ä¸ºå¹³é¢æ³•å‘é‡
 	double f_vector[3];
 	if (values.at<double>(0,0) > values.at<double>(1,0))
 	{
@@ -150,7 +150,7 @@ int main()
 		
 	}
 
-	cout << "Æ½Ãæ·¨ÏòÁ¿Îª£º" << f_vector[0] << " " << f_vector[1] <<" "<< f_vector[2];
+	cout << "å¹³é¢æ³•å‘é‡ä¸ºï¼š" << f_vector[0] << " " << f_vector[1] <<" "<< f_vector[2];
 
 
 	/*
