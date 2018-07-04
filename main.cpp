@@ -2,14 +2,17 @@
 #include <opencv2/opencv.hpp>
 #include <fstream>
 #include <stdio.h>
+#include "calculate.h"
 using namespace std;
 using namespace cv;
+
 
 int main()
 {
 	fstream file;
-	file.open("E:\\depth-0604.txt");
+	file.open("E:\\ÑĞ¾¿Éú¿ÎÌâ\\ÍõÈêÄş¿ÎÌâ\\depth-0604.txt");
 	Mat depth = Mat(424, 512, CV_16SC1);
+	
 	for (int i = 0; i < 424; i++)
 	{
 		for (int j = 0; j < 512; j++)
@@ -43,18 +46,31 @@ int main()
 			depth2.at<uchar>(i, j) = uchar(depth2gray.at<short>(i,j));
 		}
 	}
-	imwrite("E:\\depth2gray1.png", depth2);
+
+	
+
+	imwrite("E:\\ÑĞ¾¿Éú¿ÎÌâ\\ÍõÈêÄş¿ÎÌâ\\depth2gray1.png", depth2);
 	//normalize(depth2gray, depth2gray, 0, 1, CV_MINMAX);
 	//cout << depth2gray << endl;
 
+	//°Ñdepth ºÍ depth2 ¾ØÕó·Å´ó£¬Ìá¸ßºóĞøÄ£°åÆ¥ÅäµÄ¾«¶È 
+	Mat dst_depth, dst_depth2;
+	resize(depth, depth, Size(depth.cols * 1, depth.rows * 1), 0, 0, INTER_LINEAR);
+	resize(depth2, depth2, Size(depth2.cols * 1, depth2.rows * 1), 0, 0, INTER_LINEAR);
+
+	Mat aa;
+	applyColorMap(depth2, aa, cv::COLORMAP_JET);
+
+	cv::namedWindow("aa", WINDOW_AUTOSIZE);
+	cv::imshow("aa", aa);
 	Mat imggaussian,imgcanny;
-	GaussianBlur(depth2, imggaussian, Size(3, 3), 0, 0);
-	Canny(imggaussian, imgcanny, 5, 15, 3);
+	GaussianBlur(aa, imggaussian, Size(3, 3), 0, 0);
+	Canny(imggaussian, imgcanny, 30, 40, 3);
 	
 
 	vector<vector<Point>> contours;
 	vector<Vec4i> hierarchy;
-	//è½®å»“å†…é¢ç§¯
+	//ÂÖÀªÄÚÃæ»ı
 	vector<double> interArea;
 	Mat imgDilate;
 	Mat element = getStructuringElement(MORPH_DILATE, Size(5, 5));
@@ -63,11 +79,11 @@ int main()
 	Mat thresholdimg;
 	threshold(imgDilate, thresholdimg, 10, 255, THRESH_BINARY_INV);
 
-	findContours(imgDilate, contours, hierarchy, RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
-	cout <<"æ£€æµ‹åˆ°çš„è½®å»“æ•°ç›®ï¼š"<<contours.size() << endl;
+	findContours(imgDilate, contours, hierarchy, RETR_TREE, CHAIN_APPROX_NONE);
+	std::cout <<"¼ì²âµ½µÄÂÖÀªÊıÄ¿£º"<<contours.size() << endl;
 
 	vector<Mat> depthcopies; vector<double> depth_means; Mat threshold_temp,depth_multiply;
-	//å¤åˆ¶depth2
+	//¸´ÖÆdepth2
 	
 	for (int i = 0; i < contours.size(); i++)
 	{
@@ -80,52 +96,124 @@ int main()
 		double depth_top = mean(depth_multiply)[0] / mean(threshold_temp)[0];
 		depth_means.push_back(depth_top);
 	}
-	cout << endl;
-	cout << "å„ä¸ªè½®å»“å†…éƒ¨åŒºåŸŸçš„å¹³å‡æ·±åº¦å€¼ä¸ºï¼š";
+	std::cout << endl;
+	std::cout << "¸÷¸öÂÖÀªÄÚ²¿ÇøÓòµÄÆ½¾ùÉî¶ÈÖµÎª£º";
 	for (int i = 0; i < depth_means.size(); i++)
 	{
-		cout << depth_means[i] << " ";
+		std::cout << depth_means[i] << " ";
 	}
-	cout << endl; cout << endl;
+	std::cout << endl; std::cout << endl;
 
 	vector<double> depth_means_temp = depth_means;
 	sort(depth_means_temp.begin(), depth_means_temp.end());
 	vector<double>::iterator min_depth_seq = find(depth_means.begin(), depth_means.end(), depth_means_temp[0]);
 	int min_depth_seq_int = min_depth_seq - depth_means.begin();
-	cout << "ç¬¬" << min_depth_seq_int +1 << "ä¸ªè½®å»“ä¸ºè¦æ‰¾å¯»çš„ç›’å­é¡¶éƒ¨åŒºåŸŸ" << endl;
-	cout << "å…¶é¢ç§¯ä¸ºï¼š" << interArea[min_depth_seq_int] << endl;
+	std::cout << "µÚ" << min_depth_seq_int +1 << "¸öÂÖÀªÎªÒªÕÒÑ°µÄºĞ×Ó¶¥²¿ÇøÓò" << endl;
+	std::cout << "ÆäÃæ»ıÎª£º" << interArea[min_depth_seq_int] << endl;
 
-	//åœ¨ç›’å­é¡¶éƒ¨åŒºåŸŸä¸­å–500ä¸ªç‚¹æ”¾å…¥ä¸‰ç»´åæ ‡çŸ©é˜µä¸­
-	Mat positions = Mat(300, 3, CV_16SC1);
-	int m = 0;
-	for (int i = 170; i < 315; i=i+2)
+
+
+	double *correlation_value1 = Contours_matching(contours, min_depth_seq_int, square_);
+	std::cout <<"¼ÆËãµÃµ½Óë³¤·½ĞÎÆ¥ÅäµÄÏà¹Ø²ÎÊıÖµÎª£º"<< correlation_value1[0] << " " << correlation_value1[1] << endl;
+	delete[]correlation_value1;
+
+	double *correlation_value2 = Contours_matching(contours, min_depth_seq_int, rectangle_);
+	std::cout << "¼ÆËãµÃµ½ÓëÕı·½ĞÎÆ¥ÅäµÄÏà¹Ø²ÎÊıÖµÎª£º" << correlation_value2[0] << " " << correlation_value2[1] << endl;
+	delete[]correlation_value2;
+
+	double *correlation_value3 = Contours_matching(contours, min_depth_seq_int, triangle_);
+	std::cout << "¼ÆËãµÃµ½ÓëÕıÈı½ÇĞÎÆ¥ÅäµÄÏà¹Ø²ÎÊıÖµÎª£º" << correlation_value3[0] << " " << correlation_value3[1] << endl;
+	delete[]correlation_value3;
+
+	//ÔÚºĞ×Ó¶¥²¿ÇøÓòÖĞÈ¡1000¸öµã·ÅÈëÈıÎ¬×ø±ê¾ØÕóÖĞ
+	Mat positions = Mat(400, 3, CV_16SC1);
+	int m = 0, n = 0;
+	for (int i = 170; i < 315; i++)
 	{
-		for (int j = 170; j < 360; j = j+2)
+		for (int j = 170; j < 360; j++)
 		{
-			if (pointPolygonTest(contours[min_depth_seq_int], Point(j, i), false) == 1)
+			if (pointPolygonTest(contours[min_depth_seq_int], Point(j, i), false) == 1 && pointPolygonTest(contours[min_depth_seq_int], Point(j - 7, i), false) == 1 
+				&& pointPolygonTest(contours[min_depth_seq_int], Point(j, i - 5), false) == 1 && pointPolygonTest(contours[min_depth_seq_int], Point(j+12, i), false) == 1 && 
+				pointPolygonTest(contours[min_depth_seq_int], Point(j, i+5), false) == 1)
 			{
-				positions.at<short>(m, 0) = i; positions.at<short>(m, 1) = j; positions.at<short>(m, 2) = depth.at<short>(i, j);
-				m++;
-				if (m == 300) break;
-			}		
-			
+				
+				{
+					positions.at<short>(m, 0) = j*depth.at<short>(i, j); positions.at<short>(m, 1) = i*depth.at<short>(i, j); positions.at<short>(m, 2) = depth.at<short>(i, j);
+					m++;
+					if (m == 400) break;
+				}
+			}					
 		}
-		if (m == 300) break;
+		if (m == 400) break;
 	}
+	//Ïà»úÄÚ²Î¾ØÕó
+	Mat inter_parameter = Mat::zeros(3, 3, CV_64FC1);
+	inter_parameter.at<double>(0, 0) = 364.2293; inter_parameter.at<double>(0, 2) = 256; 
+	inter_parameter.at<double>(1, 1) = 360.8003; inter_parameter.at<double>(1, 2) = 212;
+	inter_parameter.at<double>(2, 2) = 1;
+
+	Mat inter_parameter_inversion = inter_parameter.inv();
+
+	std::cout << inter_parameter_inversion << endl;
 	//cout << positions << endl;
 
 	Mat positions_t;
-	transpose(positions, positions_t);
+	cv::transpose(positions, positions_t);
 	positions.convertTo(positions, CV_64F);
 	positions_t.convertTo(positions_t, CV_64F);
-	Mat positons_t_positions(3,3,CV_64FC1);
-	positons_t_positions = positions_t * positions;
-	Mat values, vectors;
-	eigen(positons_t_positions, values, vectors);
+	//×ó³ËÄÚ²Î¾ØÕóµÄÄæ£¬µÃµ½Ïà»ú×ø±êÏµÏÂµÄX,Y,Z	
+	Mat positions_c = inter_parameter_inversion * positions_t;
 
-	cout << values << endl;
-	cout << vectors << endl;
-	//æ±‚æœ€å°ç‰¹å¾å€¼åŠå…¶å¯¹åº”çš„ç‰¹å¾å‘é‡ï¼Œå³ä¸ºå¹³é¢æ³•å‘é‡
+	double xx[3] = {0,0,0};
+	for (int i = 0; i < positions_c.rows; i++)
+	{
+		for (int j = 0; j < positions_c.cols; j++)
+		{
+			xx[i] = xx[i] + positions_c.at<double>(i, j);
+		}
+	}
+	double xx_mean[3] = { 0, 0, 0 };
+	xx_mean[0] = xx[0] / positions_c.cols; xx_mean[1] = xx[1] / positions_c.cols; xx_mean[2] = xx[2] / positions_c.cols;
+
+	for (int i = 0; i < positions_c.rows; i++)
+	{
+		for (int j = 0; j < positions_c.cols; j++)
+		{
+			positions_c.at<double>(i, j) = positions_c.at<double>(i, j) - xx_mean[i];
+		}
+	}
+
+	Mat positions_c_t;
+	cv::transpose(positions_c, positions_c_t);
+
+	//½«¾ØÕóÊä³öµ½ÎÄ±¾ÎÄ¼ş
+	ofstream outFile("E:\\ÑĞ¾¿Éú¿ÎÌâ\\ÍõÈêÄş¿ÎÌâ\\top_positions.txt", ios_base::out);  //°´ĞÂ½¨»ò¸²¸Ç·½Ê½Ğ´Èë  
+	if (!outFile.is_open())
+	{
+		std::cout << "´ò¿ªÎÄ¼şÊ§°Ü" << endl;
+		return false;
+	}
+	
+	for (int i = 0; i < 400; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			 double t = positions_c_t.at<double>(i, j);
+			 outFile << t << "\t";
+		}
+		outFile << endl;
+	}
+
+	
+	Mat PTP(3,3,CV_64FC1);
+	PTP = positions_c * positions_c_t;
+	Mat values, vectors;
+	cv::eigen(PTP, values, vectors);
+
+	std::cout << "·Ç¸ºÕı¶¨¾ØÕóÎª£º"<< PTP << endl;
+	std::cout << "ÆäÌØÕ÷ÖµÎª "<<values << endl;
+	std::cout << "ÆäÌØÕ÷ÏòÁ¿Îª "<<vectors << endl;
+	//Çó×îĞ¡ÌØÕ÷Öµ¼°Æä¶ÔÓ¦µÄÌØÕ÷ÏòÁ¿£¬¼´ÎªÆ½Ãæ·¨ÏòÁ¿
 	double f_vector[3];
 	if (values.at<double>(0,0) > values.at<double>(1,0))
 	{
@@ -150,21 +238,21 @@ int main()
 		
 	}
 
-	cout << "å¹³é¢æ³•å‘é‡ä¸ºï¼š" << f_vector[0] << " " << f_vector[1] <<" "<< f_vector[2];
+	std::cout << "Æ½Ãæ·¨ÏòÁ¿Îª£º" << f_vector[0] << " " << f_vector[1] <<" "<< f_vector[2];
 
 
-	/*
-	namedWindow("imgcanny", WINDOW_AUTOSIZE);
-	imshow("imgcanny", imgcanny);
-	namedWindow("imgDilate", WINDOW_AUTOSIZE);
-	imshow("imgDilate", thresholdimg);
-	namedWindow("depth2gray", WINDOW_AUTOSIZE);
-	imshow("depth2gray", depth2);
-	*/
+	
+	cv::namedWindow("imgcanny", WINDOW_AUTOSIZE);
+	cv::imshow("imgcanny", imgcanny);
+	cv::namedWindow("imgDilate", WINDOW_AUTOSIZE);
+	cv::imshow("imgDilate", thresholdimg);
+	cv::namedWindow("depth2gray", WINDOW_AUTOSIZE);
+	cv::imshow("depth2gray", depth2);
+	
 
 
-	namedWindow("depthcopies", WINDOW_AUTOSIZE);
-	imshow("depthcopies", depthcopies[min_depth_seq_int]);
+	cv::namedWindow("depthcopies", WINDOW_AUTOSIZE);
+	cv::imshow("depthcopies", depthcopies[min_depth_seq_int]);
 
 	/*
 	namedWindow("threshold_temp", WINDOW_AUTOSIZE);
