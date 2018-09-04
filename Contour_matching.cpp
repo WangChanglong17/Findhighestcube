@@ -2,55 +2,53 @@
 using namespace std;
 using namespace cv;
 
-
-double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int, template_type x)
+double * Contours_matching(const vector<vector<Point>> &contours, Mat &depth_gray, int min_depth_seq_int, template_type x)
 {
 	Moments target_moment;
 	target_moment = moments(contours[min_depth_seq_int], false);
 	int cx = int(target_moment.m10 / target_moment.m00);
 	int cy = int(target_moment.m01 / target_moment.m00);
 	Point centroid = Point(cx, cy);
-	std::cout << "轮廓形心为" << centroid.x << centroid.y << endl;
+	
 	//画出形心
-	//cv::circle(depth2, centroid, 2, Scalar(0, 0, 0));
+	cv::circle(depth_gray, centroid, 2, Scalar(0, 0, 0));
 	for (int i = 0; i < contours[min_depth_seq_int].size(); i++)
 	{
 		//circle(depth2, contours[min_depth_seq_int][i], 2, Scalar(0, 0, 0));
-
-
 	}
 
 	//对轮廓上每一点，求其与形心连线与水平线的夹角
 	vector<double> angle_set;
-	std::cout << "size: " << contours[min_depth_seq_int].size() << endl;
+	//std::cout << "size: " << contours[min_depth_seq_int].size() << endl;
 	for (int i = 0; i < contours[min_depth_seq_int].size(); i++)
 	{
 		angle_set.push_back(calculate_angle(centroid, contours[min_depth_seq_int][i]));
-		//cout << angle_set[i] << " " ;
+		//
 	}
 	vector<double> angle_set_copy = angle_set;
 	sort(angle_set_copy.begin(), angle_set_copy.end());
-
+	//for (int i = 0; i < angle_set_copy.size(); i++)
+	//{
+	//	std::cout << angle_set_copy[i] << " ";
+	//}
 	//将轮廓内点全部重新排序，按照角度从0到360度，逆时针旋转,并构建距离的序列
 	vector<Point> point_contours;
 	vector<double> distance;
-	double angle_step = 1;
+	double angle_step = 0.2;
 	for (double i = 0; i < 360; i = i + angle_step)
 	{
-
 		size_t sequence_num_1; size_t sequence_num_2; int tem_x; int tem_y; bool label = false;
 		vector<double>::iterator angle_iterator_1; vector<double>::iterator angle_iterator_2;
-		for (sequence_num_1 = 0; sequence_num_1<angle_set_copy.size(); sequence_num_1++)
-		{
-			if (angle_set_copy[sequence_num_1] > i)
-			{
+		for (sequence_num_1 = 0; sequence_num_1<angle_set_copy.size(); sequence_num_1++){
+			if (angle_set_copy[sequence_num_1] > i){
 				label = true; break;
 			}
-
 		}
+		//std::cout << angle_set_copy[0] << std::endl;
 
 		if (label == true)
 		{
+			//std::cout << sequence_num_1 << endl;
 			sequence_num_1 = sequence_num_1 - 1;
 			angle_iterator_1 = find(angle_set.begin(), angle_set.end(), angle_set_copy[sequence_num_1]);
 			angle_iterator_2 = find(angle_set.begin(), angle_set.end(), angle_set_copy[sequence_num_1 + 1]);
@@ -58,9 +56,9 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 			sequence_num_1 = angle_iterator_1 - angle_set.begin();
 
 			//cout << angle_set[sequence_num_1] << "  " << angle_set[sequence_num_2];
-			tem_x = int(((i - angle_set[sequence_num_1]) * contours[min_depth_seq_int][sequence_num_1].x + (-i + angle_set[sequence_num_2]) * contours[min_depth_seq_int][sequence_num_2].x)
+			tem_x = int(((i - angle_set[sequence_num_1]) * contours[min_depth_seq_int][sequence_num_2].x + (-i + angle_set[sequence_num_2]) * contours[min_depth_seq_int][sequence_num_1].x)
 				/ (angle_set[sequence_num_2] - angle_set[sequence_num_1]));
-			tem_y = int(((i - angle_set[sequence_num_1]) * contours[min_depth_seq_int][sequence_num_1].y + (-i + angle_set[sequence_num_2]) * contours[min_depth_seq_int][sequence_num_2].y)
+			tem_y = int(((i - angle_set[sequence_num_1]) * contours[min_depth_seq_int][sequence_num_2].y + (-i + angle_set[sequence_num_2]) * contours[min_depth_seq_int][sequence_num_1].y)
 				/ (angle_set[sequence_num_2] - angle_set[sequence_num_1]));
 
 		}
@@ -93,7 +91,7 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 
 	//计算模板轮廓
 	double mean_template = template_standard(x, template_dis);
-	std::cout << "mean_template: " << mean_template << endl;
+	//std::cout << "mean_template: " << mean_template << endl;
 
 	//将distance写进文本文件
 	ofstream file1("E:\\研究生课题\\王汝宁课题\\distance.txt", ios_base::out);
@@ -109,7 +107,7 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 	}
 
 	double mean = sum / distance.size();
-	cout << "mean: " << mean << endl;
+	//cout << "mean: " << mean << endl;
 	double multiple = mean_template / mean;
 	std::cout << "模板轮廓相对此轮廓的尺寸伸缩倍数为: " << multiple << endl;
 	for (int i = 0; i < distance.size(); i++)
@@ -132,25 +130,28 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 	for (int i = 0; i < template_dis.size(); i++)
 	{
 		template_dis_sum += (template_dis[i] - mean_template) * (template_dis[i] - mean_template);
+		//template_dis_sum += (template_dis[i]) * (template_dis[i]);
 		//distance_sum += (distance[i]-mean) * (distance[i]-mean);
 		//std::cout << template_dis [i] << " ";
 	}
 	vector<double> correlation;
 
 
-	for (int i = -180; i < 180; i++)
+	for (double i = -180; i < 180; i = i + angle_step)
 	{
+		int k = i / angle_step;
+		int count_angle = 360 / angle_step;
 		vector<double> relative;
 		for (int j = 0; j < distance.size(); j++)
 		{
-			int temp = j - i;
+			int temp = j - k;
 			if (temp < 0)
 			{
-				temp = temp + 360;
+				temp = temp + count_angle;
 			}
 			else
 			{
-				temp = temp % 360;
+				temp = temp % count_angle;
 			}
 			relative.push_back(distance[temp]);
 		}
@@ -159,8 +160,10 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 		for (int k = 0; k < relative.size(); k++)
 		{
 			sum += (template_dis[k] - mean_template) * (relative[k] - mean);
+			//sum += (template_dis[k]) * (relative[k]);
 			//sum += relative[k] * relative[k];
 			sum_relative += (relative[k] - mean*multiple) * (relative[k] - mean*multiple);
+			//sum_relative += (relative[k]) * (relative[k]);
 
 		}
 		sum = sum / sqrt(template_dis_sum * sum_relative);
@@ -175,14 +178,12 @@ double * Contours_matching(vector<vector<Point>> contours, int min_depth_seq_int
 		//std::cout << correlation[i] << endl;
 	}
 
-	
-	std::cout << "最大相关系数：" << correlation_pra << endl;
+	//std::cout << "最大相关系数：" << correlation_pra << endl;
 	vector<double>::iterator k = find(correlation.begin(), correlation.end(), correlation_pra);
 
 	int angle_rolate = k - correlation.begin() - 180;
 
-	std::cout << "此时轮廓旋转角度为：" << angle_rolate << endl; 
-	
+	//std::cout << "此时轮廓旋转角度为：" << angle_rolate << endl; 
 	
 	double *correlation_value = new double[2];
 	correlation_value[0] = correlation_pra;

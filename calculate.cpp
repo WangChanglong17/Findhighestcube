@@ -2,28 +2,27 @@
 using namespace std;
 using namespace cv;
 
-
 const double pi = 3.141592653;
-
-
 
 double template_standard(template_type x, vector<double> &distance)
 {
 	Mat a,input, gray, imgcanny;
 	vector<vector<Point>> contours1;
 	vector<Vec4i> hierarchy1;
+	bool rand_label = false;
 	switch (x){
 	case square_:
-		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\square.jpg");
+		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\square.png");
 		break;
 	case rectangle_:
-		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\rectangle.png");
+		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\rectangle.jpg");
 		break;
 	case triangle_:
 		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\triangle.png");
 		break;
 	case circle_:
-		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\圆形.png");
+		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\circle.png");
+		rand_label = true;
 		break;
 	}
 		//cvtColor(a, gray, CV_RGB2GRAY);
@@ -34,7 +33,7 @@ double template_standard(template_type x, vector<double> &distance)
 	//cvWaitKey(0);
 	Mat binary;
 	threshold(gray, binary, 254, 255, THRESH_BINARY_INV);
-	namedWindow("binary", WINDOW_AUTOSIZE);
+	//namedWindow("binary", WINDOW_AUTOSIZE);
 	//imshow("binary", binary);
 	//cvWaitKey(0);
 	Canny(binary, imgcanny, 30, 40, 3);
@@ -42,8 +41,8 @@ double template_standard(template_type x, vector<double> &distance)
 	Mat imgdilate;
 	Mat element1 = getStructuringElement(MORPH_DILATE, Size(5, 5));
 	dilate(imgcanny, imgdilate, element1);
-	imshow("binary", imgdilate);
-	cvWaitKey(0);
+	//imshow("binary", imgdilate);
+	//cvWaitKey(0);
 	findContours(imgdilate, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_NONE);
 	Moments target_moment;
 	target_moment = moments(contours1[0], false);
@@ -65,7 +64,8 @@ double template_standard(template_type x, vector<double> &distance)
 	//将轮廓内点全部重新排序，按照角度从0到360度，逆时针旋转,并构建距离的序列
 	vector<Point> point_contours;
 	//vector<double> distance;
-	double angle_step = 1;
+	double angle_step = 0.2; double dis = 0;
+	srand((unsigned)time(NULL));
 	for (double i = 0; i < 360; i = i + angle_step)
 	{
 		size_t sequence_num_1; size_t sequence_num_2; int tem_x; int tem_y; bool label = false;
@@ -76,7 +76,6 @@ double template_standard(template_type x, vector<double> &distance)
 			{
 				label = true; break;
 			}
-
 		}
 
 		if (label == true)
@@ -86,11 +85,10 @@ double template_standard(template_type x, vector<double> &distance)
 			angle_iterator_2 = find(angle_set.begin(), angle_set.end(), angle_set_copy[sequence_num_1 + 1]);
 			sequence_num_2 = angle_iterator_2 - angle_set.begin();
 			sequence_num_1 = angle_iterator_1 - angle_set.begin();
-
 				
-			tem_x = int(((i - angle_set[sequence_num_1]) * contours1[0][sequence_num_1].x + (-i + angle_set[sequence_num_2]) * contours1[0][sequence_num_2].x)
+			tem_x = int(((i - angle_set[sequence_num_1]) * contours1[0][sequence_num_2].x + (-i + angle_set[sequence_num_2]) * contours1[0][sequence_num_1].x)
 				/ (angle_set[sequence_num_2] - angle_set[sequence_num_1]));
-			tem_y = int(((i - angle_set[sequence_num_1]) * contours1[0][sequence_num_1].y + (-i + angle_set[sequence_num_2]) * contours1[0][sequence_num_2].y)
+			tem_y = int(((i - angle_set[sequence_num_1]) * contours1[0][sequence_num_2].y + (-i + angle_set[sequence_num_2]) * contours1[0][sequence_num_1].y)
 				/ (angle_set[sequence_num_2] - angle_set[sequence_num_1]));
 
 		}
@@ -109,17 +107,33 @@ double template_standard(template_type x, vector<double> &distance)
 				/ (360 + angle_set[sequence_num_2] - angle_set[sequence_num_1]));
 
 		}
-
+		
 		Point tem = Point(tem_x, tem_y);
-		double dis = sqrt((tem_x - centroid.x)*(tem_x - centroid.x) + (tem_y - centroid.y)*(tem_y - centroid.y));
-		point_contours.push_back(tem);
-		distance.push_back(dis);
+		if (rand_label)
+		{
+			if (i == 0) dis = sqrt((tem_x - centroid.x)*(tem_x - centroid.x) + (tem_y - centroid.y)*(tem_y - centroid.y));
+			
+			int x_rand = rand() % 100;
+		   //	cout << " " << x_rand;
+			double y_rand = double(x_rand) * dis * 0.00001 ;
+			//cout << dis << endl;
+			//cout << y_rand << " ";
+			point_contours.push_back(tem);
+			double dis_temp = dis + y_rand;
+			distance.push_back(dis_temp);
+		}
+		else
+		{
+			dis = sqrt((tem_x - centroid.x)*(tem_x - centroid.x) + (tem_y - centroid.y)*(tem_y - centroid.y));
+			point_contours.push_back(tem);
+			distance.push_back(dis);
+		}
 	}
 
-	ofstream file1("E:\\研究生课题\\王汝宁课题\\template_distance.txt", ios_base::out);
+	ofstream file1("E:\\研究生课题\\王汝宁课题\\template_distance" + to_string(x)+".txt", ios_base::out);
 	if (!file1.is_open())
 	{
-		cout << "打开distance.txt文件失败" << endl;
+		cout << "打开template_distance.txt文件失败" << endl;
 	}
 
 	double sum = 0;
