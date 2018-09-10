@@ -167,12 +167,12 @@ int get_min_depth_seq(vector<vector<Point>> &contours, Mat &depth,Mat depth_gray
 	return min_depth_seq_int;
 }
 
-Mat get_positions_c(vector<vector<Point>> &contours, Mat &depth, Mat &inter_parameter,int min_depth_seq_int, int points_num, int min_row, int max_row, int min_col, int max_col)
+Mat get_positions_c(vector<vector<Point>> &contours, Mat &depth, Mat &inter_parameter,int min_depth_seq_int, int points_num, int min_row, int max_row, int min_col, int max_col,int &m)
 {
 	//在盒子顶部区域中取一定数目点放入三维坐标矩阵中
 	
 	vector<std::array<double,3>> positons_vec;
-	int m = 0, n = 0;
+	int n = 0;
 	for (int i = min_row; i < max_row; i++){
 		for (int j = min_col; j < max_col; j++){
 			//if (pointPolygonTest(contours[min_depth_seq_int], Point(j, i), false) == 1 && pointPolygonTest(contours[min_depth_seq_int], Point(j - 7, i), false) == 1
@@ -287,11 +287,11 @@ Mat get_orthogonal_array(double *f_vector)
 	return orthogonal_array;
 }
 //由旋转矩阵反算矫正后的图像坐标
-Mat get_rotate_pic(Mat &rotate, Mat &positions_c, Mat & inter_parameter,double *centroid){
+Mat get_rotate_pic(Mat &rotate, Mat &positions_c, Mat & inter_parameter,double *centroid,int &m){
 	Mat rotate_positions_c = rotate * positions_c;
 	Mat rotate_t;
 	cv::transpose(rotate_positions_c, rotate_t);
-	out_points(rotate_t, "E:\\研究生课题\\王汝宁课题\\rotate_positions.txt", 1117);
+	out_points(rotate_t, "E:\\研究生课题\\王汝宁课题\\rotate_positions.txt", m);
 
 	for (int i = 0; i < rotate_positions_c.rows; i++){
 		for (int j = 0; j < rotate_positions_c.cols; j++){
@@ -311,7 +311,7 @@ Mat get_rotate_pic(Mat &rotate, Mat &positions_c, Mat & inter_parameter,double *
 		}
 	}
 	for (int i = 0; i < rotate_points.cols; i++){
-		rotate_pic.at<uchar>(point_pic_y[i] - min_y + 2, point_pic_x[i] - min_x + 2) = 255;
+		rotate_pic.at<uchar>(point_pic_y[i] - min_y + 100, point_pic_x[i] - min_x + 100) = 255;
 	}
 
 	return rotate_pic;
@@ -319,16 +319,22 @@ Mat get_rotate_pic(Mat &rotate, Mat &positions_c, Mat & inter_parameter,double *
 
 int main()
 {
+	int m = 0;
 	//深度相机内参矩阵
 	Mat inter_parameter = Mat::zeros(3, 3, CV_64FC1);
 	inter_parameter.at<double>(0, 0) = 364.2293; inter_parameter.at<double>(0, 2) = 256;
 	inter_parameter.at<double>(1, 1) = 360.8003; inter_parameter.at<double>(1, 2) = 212;
 	inter_parameter.at<double>(2, 2) = 1;
-	cout <<"深度相机内参矩阵为："<<endl<<endl<< inter_parameter << endl;
-	Mat depth = get_depth("E:\\研究生课题\\王汝宁课题\\depth-0604.txt", 424, 512);
-
+	//cout <<"深度相机内参矩阵为："<<endl<<endl<< inter_parameter << endl;
+	Mat depth = get_depth("E:\\研究生课题\\王汝宁课题\\depth-0805.txt", 424, 512);
+	Mat depth_f;
+	depth.convertTo(depth_f, CV_32FC1);
+	Mat depth_f_copy;
+	//双边滤波对深度数据进行平滑，同时保证图像边缘易于识别
+	bilateralFilter(depth_f, depth_f_copy, 5, 5, 30);
+	depth_f_copy.convertTo(depth, CV_16SC1);
 	//170,315,250,360;
-	int min_row = 170; int max_row = 315; int min_col = 170; int max_col = 360;
+	int min_row = 100; int max_row = 250; int min_col = 170; int max_col = 360;
 	Mat depth_roi_area = get_target_area(depth, min_row, max_row, min_col, max_col);
 
 	Mat depth_gray = get_gray_depth(depth_roi_area);
@@ -361,7 +367,7 @@ int main()
 
 	//获取盒子顶部表面区域的点的相机坐标系下的三维坐标，采集num个点
 	int num = 1000;
-	Mat positions_c = get_positions_c(contours, depth, inter_parameter,min_depth_seq_int, num, min_row, max_row, min_col, max_col);
+	Mat positions_c = get_positions_c(contours, depth, inter_parameter,min_depth_seq_int, num, min_row, max_row, min_col, max_col,m);
 	
 	//获取形心坐标
 	double *centroid = get_centroid(positions_c);
@@ -376,7 +382,7 @@ int main()
 	cv::transpose(positions_c, positions_c_t);
 
 	//将三维坐标输出到文本文件
-	out_points(positions_c_t, "E:\\研究生课题\\王汝宁课题\\top_positions.txt",1117);
+	out_points(positions_c_t, "E:\\研究生课题\\王汝宁课题\\top_positions.txt",m);
 	
     //获取三维平面的法向量
 	double *f_vector = get_normal_vector(positions_c);
@@ -394,7 +400,7 @@ int main()
 	Mat rotate = orthogonal_array.inv() * standard_orthogonal_array;
 
 	//由旋转矩阵反算矫正后的图像坐标
-	Mat rotate_pic = get_rotate_pic(rotate, positions_c, inter_parameter, centroid);
+	Mat rotate_pic = get_rotate_pic(rotate, positions_c, inter_parameter, centroid,m);
 	//........................................
 	
 	Mat element = getStructuringElement(MORPH_DILATE, Size(5, 5));
@@ -404,20 +410,19 @@ int main()
 	//resize(rect_rotate, rect_rotate, Size(800, 800), 0, 0, INTER_LINEAR);
 	//检测深度图（只包含感兴趣区域）中所有轮廓
 	vector<vector<Point>> contours2 = get_depth_contours(rect_rotate);
-	cvNamedWindow("rotate", WINDOW_AUTOSIZE);
-	//imshow("rotate", rect_rotate);
-	//cvWaitKey(0);
-	//找到最高的盒子顶部表面
-	//int min_depth_seq_int2 = get_min_depth_seq(contours2, depth, depth_gray);
-	
-	double *correlation_value23 = Contours_matching(contours2, rect_rotate, 0, rectangle_);
+	drawContours(rect_rotate, contours2, 0, cv::Scalar::all(255), CV_FILLED);
+	Mat dstImage;
+	medianBlur(rect_rotate, dstImage, 3);//中值滤波，对轮廓边缘进行平滑处理，减少噪声
+	vector<vector<Point>> contours3 = get_depth_contours(dstImage);
+	double *correlation_value23 = Contours_matching(contours3, rect_rotate, 0, rectangle_);
 	std::cout << "计算得到与长方形匹配的相关参数值为：" << correlation_value23[0] << " " << correlation_value23[1] << endl << endl;;
 	delete[]correlation_value23;
 
-	double *correlation_value22 = Contours_matching(contours2, rect_rotate, 0, circle_);
+	double *correlation_value22 = Contours_matching(contours3, rect_rotate, 0, circle_);
 	std::cout << "计算得到与圆匹配的相关参数值为：" << correlation_value22[0] << " " << correlation_value22[1] << endl << endl;;
 
-	drawContours(rect_rotate, contours2, 0, cv::Scalar::all(255), CV_FILLED);
+	cvNamedWindow("ddd",WINDOW_AUTOSIZE);
+	imshow("ddd", dstImage);
 	//............................................
 	cvNamedWindow("gray", WINDOW_AUTOSIZE);
 	imshow("gray", depth_gray);

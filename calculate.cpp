@@ -22,7 +22,7 @@ double template_standard(template_type x, vector<double> &distance)
 		break;
 	case circle_:
 		a = imread("E:\\研究生课题\\王汝宁课题\\形状模板图像\\circle.png");
-		rand_label = true;
+		rand_label = false;
 		break;
 	}
 		//cvtColor(a, gray, CV_RGB2GRAY);
@@ -64,7 +64,7 @@ double template_standard(template_type x, vector<double> &distance)
 	//将轮廓内点全部重新排序，按照角度从0到360度，逆时针旋转,并构建距离的序列
 	vector<Point> point_contours;
 	//vector<double> distance;
-	double angle_step = 0.2; double dis = 0;
+	double angle_step = 0.5; double dis = 0;
 	srand((unsigned)time(NULL));
 	for (double i = 0; i < 360; i = i + angle_step)
 	{
