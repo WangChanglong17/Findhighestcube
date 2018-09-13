@@ -10,7 +10,7 @@ using namespace cv;
 //从txt文件中获取深度矩阵
 Mat get_depth(string path,int h, int w)
 {
-	fstream file;
+	fstream file;	
 	file.open(path);
 	Mat depth(h, w, CV_16SC1);
 	for (int i = 0; i < h; i++)
@@ -200,9 +200,8 @@ Mat get_positions_c(vector<vector<Point>> &contours, Mat &depth, Mat &inter_para
 	
 	out_points(inter_parameter, "E:\\研究生课题\\王汝宁课题\\inter_parameter.txt", 3);
 	Mat inter_parameter_inversion = inter_parameter.inv();
-	std::cout << inter_parameter_inversion << endl;
 	//cout << positions << endl;
-	std::cout << "................................." << endl;
+	std::cout << "................................................................................." << endl;
 	Mat positions_t;
 	cv::transpose(positions, positions_t);
 	positions.convertTo(positions, CV_64F);
@@ -246,10 +245,10 @@ double *get_normal_vector(Mat &positions_c)
 	PTP = positions_c * positions_c_t;
 	Mat values, vectors;
 	cv::eigen(PTP, values, vectors);
-
-	std::cout << "非负正定矩阵为：" << PTP << endl;
+	/*std::cout << "非负正定矩阵为：" << PTP << endl;
 	std::cout << "其特征值为 " << values << endl;
-	std::cout << "其特征向量为 " << vectors << endl;
+	std::cout << "其特征向量为 " << vectors << endl;*/
+
 	//求最小特征值及其对应的特征向量，即为平面法向量
 	static double f_vector[3];
 	f_vector[0] = vectors.at<double>(2, 0); f_vector[1] = vectors.at<double>(2, 1); f_vector[2] = vectors.at<double>(2, 2);
@@ -264,7 +263,6 @@ Mat get_orthogonal_array(double *f_vector)
 	double sum_x = sqrt(x_temp[0] * x_temp[0] + x_temp[1] * x_temp[1] + x_temp[2] * x_temp[2]);
 	for (int k = 0; k < 3; k++){
 		x_temp[k] = x_temp[k] / sum_x;
-		cout << "x[k]: " << x_temp[k];
 	}
 	Mat temp_x_z(2, 3, CV_64FC1);
 	for (int j = 0; j < 3; j++){
@@ -277,7 +275,7 @@ Mat get_orthogonal_array(double *f_vector)
 	temp = temp_x_z_t * temp_x_z;
 	Mat values, vectors;
 	cv::eigen(temp, values, vectors);
-	cout << "y: " << vectors.at<double>(2, 0) <<" "<< vectors.at<double>(2, 1) <<" "<< vectors.at<double>(2, 2) << endl;
+	//cout << "y: " << vectors.at<double>(2, 0) <<" "<< vectors.at<double>(2, 1) <<" "<< vectors.at<double>(2, 2) << endl;
 	for (int i = 0; i < 3; i++)
 	{
 		orthogonal_array.at<double>(i, 0) = x_temp[i];
@@ -317,8 +315,43 @@ Mat get_rotate_pic(Mat &rotate, Mat &positions_c, Mat & inter_parameter,double *
 	return rotate_pic;
 }
 
-int main()
-{
+double* get_n_vectors(Mat &positions_c){
+	//获取形心坐标
+	double *centroid = get_centroid(positions_c);
+	cout << endl <<"形心坐标： "<< centroid[0] << " " << centroid[1] << " " << centroid[2] << endl;
+	//所有点统一减去形心坐标
+	for (int i = 0; i < positions_c.rows; i++){
+		for (int j = 0; j < positions_c.cols; j++){
+			positions_c.at<double>(i, j) = positions_c.at<double>(i, j) - centroid[i];
+		}
+	}
+
+	Mat positions_c_t;
+	cv::transpose(positions_c, positions_c_t);
+
+	//获取三维平面的法向量
+	double *f_vector = get_normal_vector(positions_c);
+	Mat a(1, 3, CV_64FC1);
+	for (int i = 0; i < 3; i++){
+		a.at<double>(0, i) = f_vector[i];
+	}
+	
+	return get_normal_vector(positions_c);
+}
+
+Mat get_rotate(double *f_vector){
+	//由平面法向量计算出两个正交单位向量，组成成交单位矩阵（以列存储）
+	Mat orthogonal_array = get_orthogonal_array(f_vector);
+
+	//计算由正交矩阵到标准正交矩阵的旋转矩阵
+	Mat standard_orthogonal_array(3, 3, CV_64FC1, Scalar(0));
+	for (int i = 0; i < 3; i++){
+		standard_orthogonal_array.at<double>(i, i) = 1;
+	}
+	Mat rotate = orthogonal_array.inv() * standard_orthogonal_array;
+	return rotate;
+}
+int main(){
 	int m = 0;
 	//深度相机内参矩阵
 	Mat inter_parameter = Mat::zeros(3, 3, CV_64FC1);
@@ -326,15 +359,16 @@ int main()
 	inter_parameter.at<double>(1, 1) = 360.8003; inter_parameter.at<double>(1, 2) = 212;
 	inter_parameter.at<double>(2, 2) = 1;
 	//cout <<"深度相机内参矩阵为："<<endl<<endl<< inter_parameter << endl;
-	Mat depth = get_depth("E:\\研究生课题\\王汝宁课题\\depth-0805.txt", 424, 512);
+	Mat depth = get_depth("E:\\研究生课题\\王汝宁课题\\depth-80.txt", 424, 512);
+	//Mat depth = kalman("E:\\研究生课题\\王汝宁课题\\堆叠数据20180910\\4-circle\\depth-");
 	Mat depth_f;
 	depth.convertTo(depth_f, CV_32FC1);
 	Mat depth_f_copy;
 	//双边滤波对深度数据进行平滑，同时保证图像边缘易于识别
-	bilateralFilter(depth_f, depth_f_copy, 5, 5, 30);
-	depth_f_copy.convertTo(depth, CV_16SC1);
+	//bilateralFilter(depth_f, depth_f_copy, 5, 5, 30);
+	//depth_f_copy.convertTo(depth, CV_16SC1);
 	//170,315,250,360;
-	int min_row = 100; int max_row = 250; int min_col = 170; int max_col = 360;
+	int min_row = 80; int max_row = 300; int min_col = 180; int max_col = 420;
 	Mat depth_roi_area = get_target_area(depth, min_row, max_row, min_col, max_col);
 
 	Mat depth_gray = get_gray_depth(depth_roi_area);
@@ -368,36 +402,23 @@ int main()
 	//获取盒子顶部表面区域的点的相机坐标系下的三维坐标，采集num个点
 	int num = 1000;
 	Mat positions_c = get_positions_c(contours, depth, inter_parameter,min_depth_seq_int, num, min_row, max_row, min_col, max_col,m);
-	
-	//获取形心坐标
-	double *centroid = get_centroid(positions_c);
-	//所有点统一减去形心坐标
-	for (int i = 0; i < positions_c.rows; i++){
-		for (int j = 0; j < positions_c.cols; j++){
-			positions_c.at<double>(i, j) = positions_c.at<double>(i, j) - centroid[i];
-		}
-	}
 
-	Mat positions_c_t;
-	cv::transpose(positions_c, positions_c_t);
+	ransac xxx = ransac(positions_c,6,10000,0.2);//16以下效果较好
+	Mat positions_c_temp = xxx.get_ransac_points();
+	cout << endl << "Ransac之前平面点数目： " << positions_c.cols << endl;
 
-	//将三维坐标输出到文本文件
-	out_points(positions_c_t, "E:\\研究生课题\\王汝宁课题\\top_positions.txt",m);
-	
-    //获取三维平面的法向量
-	double *f_vector = get_normal_vector(positions_c);
-	
-	std::cout << "平面单位法向量为：" << f_vector[0] << " " << f_vector[1] <<" "<< f_vector[2];
+	Mat positions_c_temp_t;
+	cv::transpose(positions_c_temp, positions_c_temp_t);
+	out_points(positions_c_temp_t, "E:\\研究生课题\\王汝宁课题\\top_positions_ransac.txt", positions_c_temp_t.rows);
+	cout <<endl<<"ransac后平面点数量："<< positions_c_temp.cols << endl;
+	double *f_vector0 = get_n_vectors(positions_c_temp);
+	std::cout << endl << "ransac后平面单位法向量为：" << f_vector0[0] << " " << f_vector0[1] << " " << f_vector0[2] <<endl;
+	double *centroid = get_centroid(positions_c);//获取形心坐标
+	double *f_vector = get_n_vectors(positions_c);
+	std::cout<< endl << "ransac前平面单位法向量为：" << f_vector[0] << " " << f_vector[1] << " " << f_vector[2] << endl;
 
-	//由平面法向量计算出两个正交单位向量，组成成交单位矩阵（以列存储）
-	Mat orthogonal_array = get_orthogonal_array(f_vector);
-	
-	//计算由正交矩阵到标准正交矩阵的旋转矩阵
-	Mat standard_orthogonal_array(3, 3, CV_64FC1, Scalar(0));
-	for (int i = 0; i < 3; i++){
-		standard_orthogonal_array.at<double>(i, i) = 1;
-	}
-	Mat rotate = orthogonal_array.inv() * standard_orthogonal_array;
+	Mat rotate = get_rotate(f_vector);
+	cout <<endl <<"旋转矩阵："<<endl<< rotate << endl;
 
 	//由旋转矩阵反算矫正后的图像坐标
 	Mat rotate_pic = get_rotate_pic(rotate, positions_c, inter_parameter, centroid,m);
@@ -406,19 +427,19 @@ int main()
 	Mat element = getStructuringElement(MORPH_DILATE, Size(5, 5));
 	Mat rotate_temp;
 	dilate(rotate_pic, rotate_temp, element);
-	Mat rect_rotate = rotate_temp(Rect(0, 0,  400, 400));
+	//Mat rect_rotate = rotate_temp(Rect(0, 0,  400, 400));
 	//resize(rect_rotate, rect_rotate, Size(800, 800), 0, 0, INTER_LINEAR);
 	//检测深度图（只包含感兴趣区域）中所有轮廓
-	vector<vector<Point>> contours2 = get_depth_contours(rect_rotate);
-	drawContours(rect_rotate, contours2, 0, cv::Scalar::all(255), CV_FILLED);
+	vector<vector<Point>> contours2 = get_depth_contours(rotate_temp);
+	drawContours(rotate_temp, contours2, 0, cv::Scalar::all(255), CV_FILLED);
 	Mat dstImage;
-	medianBlur(rect_rotate, dstImage, 3);//中值滤波，对轮廓边缘进行平滑处理，减少噪声
+	medianBlur(rotate_temp, dstImage, 3);//中值滤波，对轮廓边缘进行平滑处理，减少噪声
 	vector<vector<Point>> contours3 = get_depth_contours(dstImage);
-	double *correlation_value23 = Contours_matching(contours3, rect_rotate, 0, rectangle_);
-	std::cout << "计算得到与长方形匹配的相关参数值为：" << correlation_value23[0] << " " << correlation_value23[1] << endl << endl;;
+	double *correlation_value23 = Contours_matching(contours3, rotate_temp, 0, square_);
+	std::cout << "计算得到与正方形匹配的相关参数值为：" << correlation_value23[0] << " " << correlation_value23[1] << endl << endl;;
 	delete[]correlation_value23;
 
-	double *correlation_value22 = Contours_matching(contours3, rect_rotate, 0, circle_);
+	double *correlation_value22 = Contours_matching(contours3, rotate_temp, 0, circle_);
 	std::cout << "计算得到与圆匹配的相关参数值为：" << correlation_value22[0] << " " << correlation_value22[1] << endl << endl;;
 
 	cvNamedWindow("ddd",WINDOW_AUTOSIZE);
